@@ -1,4 +1,5 @@
 import json
+import struct
 import sys
 import tempfile
 import unittest
@@ -9,9 +10,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "LiverARExporter"))
 
 from Lib.ModelExporter import canonical_segment_name, expected_export_names, write_metadata
+from Lib.GlbExporter import convert_obj_folder_to_glb
 from Lib.SegmentIVSplitter import split_mask_by_superior_midpoint
 from Lib.TotalSegmentatorRunner import DependencyReport, TotalSegmentatorRunner
-from LiverARExporter import create_output_folder_selector, pipeline_inputs
+from Lib.MonaiLabelRunner import MonaiLabelRunner, task_output_plan
+from LiverARExporter import create_output_folder_selector, export_segment_to_representation, pipeline_inputs
 
 
 class SegmentIVSplitterTest(unittest.TestCase):
@@ -41,6 +44,8 @@ class ModelExporterTest(unittest.TestCase):
         self.assertEqual(canonical_segment_name("liver segment 1"), "Segment_I")
         self.assertEqual(canonical_segment_name("Segment-IVa"), "Segment_IVa")
         self.assertEqual(canonical_segment_name("hepatic veins"), "HepaticVeins")
+        self.assertEqual(canonical_segment_name("liver_vessels"), "LiverVessels")
+        self.assertEqual(canonical_segment_name("liver_lesions"), "Tumor")
         self.assertIsNone(canonical_segment_name("unrelated structure"))
 
     def test_missing_tumor_does_not_remove_required_exports(self):
@@ -67,11 +72,51 @@ class ModelExporterTest(unittest.TestCase):
 
             payload = json.loads(path.read_text(encoding="utf-8"))
 
-            self.assertEqual(payload["coordinateSystem"]["source"], "RAS")
+            self.assertEqual(payload["coordinateSystem"]["source"], "LPS")
             self.assertEqual(payload["coordinateSystem"]["unityConversion"], "metadata-defined")
             self.assertEqual(payload["models"][0]["file"], "Segment_I.obj")
             self.assertEqual(payload["models"][0]["id"], "Segment_I")
             self.assertEqual(payload["models"][0]["displayName"], "Segment I")
+
+    def test_metadata_declares_glb_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_metadata(folder, [])
+            payload = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["glbFile"], "patient.glb")
+        self.assertEqual(payload["glbRootNode"], "PatientModelRoot")
+
+
+class GlbExporterTest(unittest.TestCase):
+    def test_converts_obj_files_to_separate_named_glb_nodes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder_path = Path(folder)
+            (folder_path / "Segment_I.obj").write_text(
+                "# SPACE=LPS\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n",
+                encoding="utf-8",
+            )
+            (folder_path / "Tumor.obj").write_text(
+                "v 0 0 1\nv 1 0 1\nv 0 1 1\nf 1 2 3\n",
+                encoding="utf-8",
+            )
+            write_metadata(folder, [
+                {"name": "Segment_I", "file": "Segment_I.obj", "role": "anatomy"},
+                {"name": "Tumor", "file": "Tumor.obj", "role": "anatomy"},
+            ])
+
+            glb_path = convert_obj_folder_to_glb(folder)
+            data = glb_path.read_bytes()
+            _, version, total_length = struct.unpack_from("<4sII", data, 0)
+            json_length, json_type = struct.unpack_from("<II", data, 12)
+            document = json.loads(data[20:20 + json_length].decode("utf-8"))
+
+        self.assertEqual(version, 2)
+        self.assertEqual(total_length, len(data))
+        self.assertEqual(json_type, 0x4E4F534A)
+        self.assertEqual(
+            [node["name"] for node in document["nodes"]],
+            ["PatientModelRoot", "Segment_I", "Tumor"],
+        )
 
 
 class DependencyValidationTest(unittest.TestCase):
@@ -112,6 +157,21 @@ class DependencyValidationTest(unittest.TestCase):
         self.assertEqual(logic.values, (False, "liver_segments", True, 1))
 
 
+class SegmentationTargetTest(unittest.TestCase):
+    def test_tasks_have_independent_output_targets_and_export_labels(self):
+        self.assertEqual(task_output_plan("couinaud"), ("LiverAR_Couinaud", ("Segment_I", "Segment_II", "Segment_III", "Segment_IV", "Segment_V", "Segment_VI", "Segment_VII", "Segment_VIII")))
+        self.assertEqual(task_output_plan("vessels"), ("LiverAR_Vessels", ("PortalVein", "HepaticVeins", "LiverVessels")))
+        self.assertEqual(task_output_plan("tumor"), ("LiverAR_Tumor", ("Tumor",)))
+
+
+class MonaiLabelRunnerTest(unittest.TestCase):
+    def test_reports_missing_monai_client_without_crashing(self):
+        runner = MonaiLabelRunner("http://127.0.0.1:8000", client_factory=None)
+
+        self.assertFalse(runner.available)
+        self.assertIn("MONAI Label", runner.message)
+
+
 class FolderSelectorTest(unittest.TestCase):
     def test_creates_ctk_directory_selector(self):
         class FakePathLineEdit:
@@ -139,6 +199,18 @@ class InputValidationTest(unittest.TestCase):
     def test_export_requires_export_folder(self):
         with self.assertRaisesRegex(ValueError, "export folder"):
             pipeline_inputs("CT", "", require_output_folder=True)
+
+
+class SlicerApiCompatibilityTest(unittest.TestCase):
+    def test_exports_a_segment_object_with_slicers_two_argument_api(self):
+        class FakeLogic:
+            def ExportSegmentToRepresentationNode(self, segment, model):
+                self.values = (segment, model)
+                return True
+
+        logic = FakeLogic()
+        self.assertTrue(export_segment_to_representation(logic, "segment", "model"))
+        self.assertEqual(logic.values, ("segment", "model"))
 
 
 if __name__ == "__main__":

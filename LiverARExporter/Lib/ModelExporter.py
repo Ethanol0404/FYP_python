@@ -51,7 +51,10 @@ _CANONICAL_NAMES = {
     "portalvein": "PortalVein",
     "hepaticvein": "HepaticVeins",
     "hepaticveins": "HepaticVeins",
+    "livervessels": "LiverVessels",
     "livertumor": "Tumor",
+    "liverlesion": "Tumor",
+    "liverlesions": "Tumor",
     "tumor": "Tumor",
 }
 
@@ -88,10 +91,12 @@ def metadata_payload(entries):
         "formatVersion": 1,
         "units": "mm",
         "coordinateSystem": {
-            "source": "RAS",
+            "source": "LPS",
             "unityConversion": "metadata-defined",
-            "note": "Unity importer must apply one documented RAS-to-Unity transform; do not add arbitrary axis flips.",
+            "note": "OBJ and GLB coordinates use LPS. Unity importer must apply one documented LPS-to-Unity transform; do not add arbitrary axis flips.",
         },
+        "glbFile": "patient.glb",
+        "glbRootNode": "PatientModelRoot",
         "models": models,
     }
 

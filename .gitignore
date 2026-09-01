@@ -1,0 +1,17 @@
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# Local virtual environments
+.venv/
+.venv-*/
+venv/
+env/
+
+# Local model/output data
+outputs/
+export/
+*.glb
+*.obj
+*.nii
+*.nii.gz
