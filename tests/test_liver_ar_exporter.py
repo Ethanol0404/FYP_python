@@ -45,6 +45,8 @@ class ModelExporterTest(unittest.TestCase):
         self.assertEqual(canonical_segment_name("Segment-IVa"), "Segment_IVa")
         self.assertEqual(canonical_segment_name("hepatic veins"), "HepaticVeins")
         self.assertEqual(canonical_segment_name("liver_vessels"), "LiverVessels")
+        self.assertEqual(canonical_segment_name("blood vessels"), "LiverVessels")
+        self.assertEqual(canonical_segment_name("vessels"), "LiverVessels")
         self.assertEqual(canonical_segment_name("liver_lesions"), "Tumor")
         self.assertIsNone(canonical_segment_name("unrelated structure"))
 
@@ -162,6 +164,12 @@ class SegmentationTargetTest(unittest.TestCase):
         self.assertEqual(task_output_plan("couinaud"), ("LiverAR_Couinaud", ("Segment_I", "Segment_II", "Segment_III", "Segment_IV", "Segment_V", "Segment_VI", "Segment_VII", "Segment_VIII")))
         self.assertEqual(task_output_plan("vessels"), ("LiverAR_Vessels", ("PortalVein", "HepaticVeins", "LiverVessels")))
         self.assertEqual(task_output_plan("tumor"), ("LiverAR_Tumor", ("Tumor",)))
+
+    def test_vessel_task_is_optional_when_a_specific_vessel_is_unavailable(self):
+        from LiverARExporter import LiverARExporterLogic
+
+        self.assertIn("vessels", LiverARExporterLogic.OPTIONAL_TASKS)
+        self.assertIn("blood vessels", LiverARExporterLogic.SEGMENT_ALIASES["LiverVessels"])
 
 
 class MonaiLabelRunnerTest(unittest.TestCase):

@@ -109,10 +109,11 @@ class LiverARExporterWidget(ScriptedLoadableModuleWidget if slicer else object):
 
 
 class LiverARExporterLogic(ScriptedLoadableModuleLogic if slicer else object):
+    OPTIONAL_TASKS = {"tumor", "vessels"}
     SEGMENT_ALIASES = {
         "PortalVein": ("portal_vein", "portal vein"),
         "HepaticVeins": ("hepatic_vein", "hepatic veins"),
-        "LiverVessels": ("liver_vessels", "liver vessels"),
+        "LiverVessels": ("liver_vessels", "liver vessels", "blood_vessels", "blood vessels", "vessels", "vascular"),
         "Tumor": ("liver_tumor", "liver tumor", "tumor"),
     }
 
@@ -142,8 +143,8 @@ class LiverARExporterLogic(ScriptedLoadableModuleLogic if slicer else object):
             try:
                 self.runner.run_task(input_volume, task, task_node)
             except RuntimeError:
-                if task == "tumor":
-                    LOGGER.warning("Tumor task unavailable; export will continue without Tumor.")
+                if task in self.OPTIONAL_TASKS:
+                    LOGGER.warning("%s task unavailable; export will continue with available outputs.", task)
                     slicer.mrmlScene.RemoveNode(task_node)
                     self.task_nodes.pop(task, None)
                     continue
