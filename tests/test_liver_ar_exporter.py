@@ -9,12 +9,17 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "LiverARExporter"))
 
-from Lib.ModelExporter import canonical_segment_name, expected_export_names, write_metadata
+from Lib.ModelExporter import canonical_segment_name, display_name, expected_export_names, write_metadata
 from Lib.GlbExporter import convert_obj_folder_to_glb
 from Lib.SegmentIVSplitter import split_mask_by_superior_midpoint
 from Lib.TotalSegmentatorRunner import DependencyReport, TotalSegmentatorRunner
 from Lib.MonaiLabelRunner import MonaiLabelRunner, task_output_plan
-from LiverARExporter import create_output_folder_selector, export_segment_to_representation, pipeline_inputs
+from LiverARExporter import (
+    canonical_task_segment_name,
+    create_output_folder_selector,
+    export_segment_to_representation,
+    pipeline_inputs,
+)
 
 
 class SegmentIVSplitterTest(unittest.TestCase):
@@ -44,12 +49,13 @@ class ModelExporterTest(unittest.TestCase):
         self.assertEqual(canonical_segment_name("liver segment 1"), "Segment_I")
         self.assertEqual(canonical_segment_name("Segment-IVa"), "Segment_IVa")
         self.assertEqual(canonical_segment_name("hepatic veins"), "HepaticVeins")
-        self.assertEqual(canonical_segment_name("liver_vessels"), "LiverVessels")
-        self.assertEqual(canonical_segment_name("blood vessels"), "LiverVessels")
-        self.assertEqual(canonical_segment_name("vessels"), "LiverVessels")
+        self.assertEqual(canonical_segment_name("liver_vessels"), "BloodVessels")
+        self.assertEqual(canonical_segment_name("blood vessels"), "BloodVessels")
+        self.assertEqual(canonical_segment_name("vessels"), "BloodVessels")
         self.assertEqual(canonical_segment_name("portal_vein_main"), "PortalVein")
         self.assertEqual(canonical_segment_name("hepatic_vein_left"), "HepaticVeins")
         self.assertEqual(canonical_segment_name("hepatic_vein_right"), "HepaticVeins")
+        self.assertEqual(display_name("BloodVessels"), "Blood Vessels")
         self.assertEqual(canonical_segment_name("liver_lesions"), "Tumor")
         self.assertIsNone(canonical_segment_name("unrelated structure"))
 
@@ -165,14 +171,17 @@ class DependencyValidationTest(unittest.TestCase):
 class SegmentationTargetTest(unittest.TestCase):
     def test_tasks_have_independent_output_targets_and_export_labels(self):
         self.assertEqual(task_output_plan("couinaud"), ("LiverAR_Couinaud", ("Segment_I", "Segment_II", "Segment_III", "Segment_IV", "Segment_V", "Segment_VI", "Segment_VII", "Segment_VIII")))
-        self.assertEqual(task_output_plan("vessels"), ("LiverAR_Vessels", ("PortalVein", "HepaticVeins", "LiverVessels")))
+        self.assertEqual(task_output_plan("vessels"), ("LiverAR_Vessels", ("PortalVein", "HepaticVeins", "BloodVessels")))
         self.assertEqual(task_output_plan("tumor"), ("LiverAR_Tumor", ("Tumor",)))
 
     def test_vessel_task_is_optional_when_a_specific_vessel_is_unavailable(self):
         from LiverARExporter import LiverARExporterLogic
 
         self.assertIn("vessels", LiverARExporterLogic.OPTIONAL_TASKS)
-        self.assertIn("blood vessels", LiverARExporterLogic.SEGMENT_ALIASES["LiverVessels"])
+        self.assertIn("blood vessels", LiverARExporterLogic.SEGMENT_ALIASES["BloodVessels"])
+
+    def test_unknown_vessel_task_label_is_preserved_as_blood_vessels(self):
+        self.assertEqual(canonical_task_segment_name("vessels", "unknown_vessel_label"), "BloodVessels")
 
 
 class MonaiLabelRunnerTest(unittest.TestCase):

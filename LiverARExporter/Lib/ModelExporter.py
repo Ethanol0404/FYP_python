@@ -51,10 +51,10 @@ _CANONICAL_NAMES = {
     "portalvein": "PortalVein",
     "hepaticvein": "HepaticVeins",
     "hepaticveins": "HepaticVeins",
-    "livervessels": "LiverVessels",
-    "bloodvessels": "LiverVessels",
-    "vessels": "LiverVessels",
-    "vascular": "LiverVessels",
+    "livervessels": "BloodVessels",
+    "bloodvessels": "BloodVessels",
+    "vessels": "BloodVessels",
+    "vascular": "BloodVessels",
     "livertumor": "Tumor",
     "liverlesion": "Tumor",
     "liverlesions": "Tumor",
@@ -73,7 +73,7 @@ def canonical_segment_name(name):
     if key.startswith("hepaticvein"):
         return "HepaticVeins"
     if key.startswith(("livervessels", "bloodvessels", "vessels", "vascular")):
-        return "LiverVessels"
+        return "BloodVessels"
     return None
 
 
@@ -81,6 +81,7 @@ def display_name(name):
     return {
         "PortalVein": "Portal Vein",
         "HepaticVeins": "Hepatic Veins",
+        "BloodVessels": "Blood Vessels",
         "Tumor": "Tumor",
     }.get(name, name.replace("_", " "))
 

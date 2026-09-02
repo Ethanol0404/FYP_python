@@ -2,7 +2,7 @@
 
 TASK_OUTPUTS = {
     "couinaud": ("LiverAR_Couinaud", ("Segment_I", "Segment_II", "Segment_III", "Segment_IV", "Segment_V", "Segment_VI", "Segment_VII", "Segment_VIII")),
-    "vessels": ("LiverAR_Vessels", ("PortalVein", "HepaticVeins", "LiverVessels")),
+    "vessels": ("LiverAR_Vessels", ("PortalVein", "HepaticVeins", "BloodVessels")),
     "tumor": ("LiverAR_Tumor", ("Tumor",)),
 }
 

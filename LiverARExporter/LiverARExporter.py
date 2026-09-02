@@ -27,6 +27,17 @@ from Lib.SurfaceGenerator import create_closed_surfaces, export_model_to_obj
 LOGGER = logging.getLogger(__name__)
 
 
+def canonical_task_segment_name(task, source_name):
+    """Map a task output to a stable name, preserving unknown vessel labels."""
+    canonical = canonical_segment_name(source_name)
+    _, allowed_names = task_output_plan(task)
+    if canonical in allowed_names:
+        return canonical
+    if task == "vessels":
+        return "BloodVessels"
+    return None
+
+
 def create_output_folder_selector(ctk_module):
     selector = ctk_module.ctkPathLineEdit()
     selector.filters = ctk_module.ctkPathLineEdit.Dirs
@@ -113,7 +124,7 @@ class LiverARExporterLogic(ScriptedLoadableModuleLogic if slicer else object):
     SEGMENT_ALIASES = {
         "PortalVein": ("portal_vein", "portal vein"),
         "HepaticVeins": ("hepatic_vein", "hepatic veins"),
-        "LiverVessels": ("liver_vessels", "liver vessels", "blood_vessels", "blood vessels", "vessels", "vascular"),
+        "BloodVessels": ("liver_vessels", "liver vessels", "blood_vessels", "blood vessels", "vessels", "vascular", "LiverVessels"),
         "Tumor": ("liver_tumor", "liver tumor", "tumor"),
     }
 
@@ -169,14 +180,16 @@ class LiverARExporterLogic(ScriptedLoadableModuleLogic if slicer else object):
     def _merge_task_nodes(self):
         target = self.segmentation_node.GetSegmentation()
         for task, source_node in self.task_nodes.items():
-            _, allowed_names = task_output_plan(task)
             source = source_node.GetSegmentation()
             for index in range(source.GetNumberOfSegments()):
                 source_id = source.GetNthSegmentID(index)
                 source_segment = source.GetSegment(source_id)
-                if source_segment.GetName() not in allowed_names:
+                canonical = canonical_task_segment_name(task, source_segment.GetName())
+                if not canonical:
                     continue
-                if target.GetSegmentIdBySegmentName(source_segment.GetName()):
+                if source_segment.GetName() != canonical:
+                    source_segment.SetName(canonical)
+                if target.GetSegmentIdBySegmentName(canonical):
                     continue
                 target.CopySegmentFromSegmentation(source, source_id)
             slicer.mrmlScene.RemoveNode(source_node)
@@ -215,11 +228,11 @@ class LiverARExporterLogic(ScriptedLoadableModuleLogic if slicer else object):
         folder.mkdir(parents=True, exist_ok=True)
         segmentation = self.segmentation_node.GetSegmentation()
         entries = []
-        export_names = expected_export_names(include_tumor=True) + ["LiverVessels"]
+        export_names = expected_export_names(include_tumor=True) + ["BloodVessels"]
         for name in export_names:
             segment_id = self._find_segment_id((name,) + self.SEGMENT_ALIASES.get(name, ()))
             if not segment_id:
-                if name in ("Tumor", "LiverVessels"):
+                if name in ("Tumor", "BloodVessels"):
                     continue
                 LOGGER.warning("Expected segment %s was not present and was not exported.", name)
                 continue
@@ -232,7 +245,7 @@ class LiverARExporterLogic(ScriptedLoadableModuleLogic if slicer else object):
                 )
                 path = folder / (name + ".obj")
                 export_model_to_obj(slicer, model, path)
-                role = "vessels" if name in ("PortalVein", "HepaticVeins", "LiverVessels") else "anatomy"
+                role = "vessels" if name in ("PortalVein", "HepaticVeins", "BloodVessels") else "anatomy"
                 entries.append({"name": name, "file": path.name, "role": role})
             finally:
                 slicer.mrmlScene.RemoveNode(model)
