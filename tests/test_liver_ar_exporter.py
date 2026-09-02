@@ -47,6 +47,9 @@ class ModelExporterTest(unittest.TestCase):
         self.assertEqual(canonical_segment_name("liver_vessels"), "LiverVessels")
         self.assertEqual(canonical_segment_name("blood vessels"), "LiverVessels")
         self.assertEqual(canonical_segment_name("vessels"), "LiverVessels")
+        self.assertEqual(canonical_segment_name("portal_vein_main"), "PortalVein")
+        self.assertEqual(canonical_segment_name("hepatic_vein_left"), "HepaticVeins")
+        self.assertEqual(canonical_segment_name("hepatic_vein_right"), "HepaticVeins")
         self.assertEqual(canonical_segment_name("liver_lesions"), "Tumor")
         self.assertIsNone(canonical_segment_name("unrelated structure"))
 

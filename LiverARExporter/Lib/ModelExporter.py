@@ -65,7 +65,16 @@ _CANONICAL_NAMES = {
 def canonical_segment_name(name):
     """Return the stable export/UI name for a known upstream label."""
     key = "".join(character.lower() for character in name if character.isalnum())
-    return _CANONICAL_NAMES.get(key)
+    canonical = _CANONICAL_NAMES.get(key)
+    if canonical:
+        return canonical
+    if key.startswith("portalvein"):
+        return "PortalVein"
+    if key.startswith("hepaticvein"):
+        return "HepaticVeins"
+    if key.startswith(("livervessels", "bloodvessels", "vessels", "vascular")):
+        return "LiverVessels"
+    return None
 
 
 def display_name(name):
